@@ -149,14 +149,14 @@ void STM32LowPower::shutdown(uint32_t millis)
 }
 
 /**
-  * @brief  Enable GPIO pin in interrupt mode. If the pin is a wakeup pin, it is
-  *         configured as wakeup source.
+  * @brief  Enable or disable GPIO pin in interrupt mode. If the pin is a wakeup pin, it is
+  *         configured as wakeup source (only supported modes).
   * @param  pin:  pin number
-  * @param  callback: pointer to callback function.
-  * @param  mode: pin interrupt mode (HIGH, LOW, RISING, FALLING or CHANGE)
+  * @param  callback: pointer to callback function (optional).
+  * @param  mode: pin interrupt mode (HIGH, LOW, RISING, FALLING or CHANGE, NOT_AN_INTERRUPT to disable).
   * @retval None
   */
-void STM32LowPower::attachInterruptWakeup(uint32_t pin, voidFuncPtrVoid callback, uint32_t mode)
+void STM32LowPower::enableWakeupPin(uint32_t pin, voidFuncPtrVoid callback, uint32_t mode)
 {
   // all GPIO for idle (smt32 sleep) and sleep (stm32 stop)
   attachInterrupt(pin, callback, mode);
@@ -166,53 +166,63 @@ void STM32LowPower::attachInterruptWakeup(uint32_t pin, voidFuncPtrVoid callback
 }
 
 /**
-  * @brief  Enable a serial interface as a wakeup source.
-  * @param  serial: pointer to a HardwareSerial
+  * @brief  Enable or disable a serial interface as a wakeup source.
+  * @param  serial: pointer to a HardwareSerial (NULL to disable)
   * @param  callback: pointer to callback function called when leave the low power
-  *                   mode.
+  *                   mode (optional).
   * @retval None
   */
-void STM32LowPower::enableWakeupFrom(HardwareSerial *serial, voidFuncPtrVoid callback)
+void STM32LowPower::enableWakeupSerial(HardwareSerial *serial, voidFuncPtrVoid callback)
 {
-  LowPower_EnableWakeUpUart(&(serial->_serial), callback);
+  LowPower_EnableWakeUpUart(serial ? &(serial->_serial) : NULL, callback);
 }
 
 /**
-  * @brief  Attach a callback to a RTC alarm.
-  * @param  rtc: pointer to a STM32RTC
+  * @brief  Enable or disable a callback function for RTC wakeup.
   * @param  callback: pointer to callback function called when leave the low power
-  *                   mode.
+  *                   mode (NULL to disable).
   * @retval None
   */
-void STM32LowPower::enableWakeupFrom(STM32RTC *rtc, voidFuncPtr callback)
+void STM32LowPower::enableWakeupRtcFunction(voidFuncPtr callback)
 {
-  rtc->attachInterrupt(callback);
+  STM32RTC& rtcLowPower = STM32RTC::getInstance();
+
+  if (callback)
+    rtcLowPower.attachInterrupt(callback);
+  else
+    rtcLowPower.detachInterrupt();
 }
 
 /**
   * @brief  Configure the RTC alarm
-  * @param  millis: time of the alarm in milliseconds. At least 1000ms.
+  * @param  millis: time of the alarm in milliseconds. At least 1000ms on some platforms.
   * @retval None
   */
 void STM32LowPower::programRtcWakeUp(uint32_t millis)
 {
-  int epoc;
-  uint32_t sec;
+  STM32RTC& rtcLowPower = STM32RTC::getInstance();
+
+  uint32_t epoc, ss;
+  int32_t sec, ms;
 
   if(millis > 0) {
     if (!rtcLowPower.isConfigured()){
       //Enable RTC
-      rtcLowPower.begin(HOUR_24);
+      rtcLowPower.begin(STM32RTC::RTC_HOUR_24);
     }
 
     // convert millisecond to second
+    ms = millis % 1000;
     sec = millis / 1000;
-    // Minimum is 1 second
-    if (sec == 0){
-      sec = 1;
-    }
 
     epoc = rtcLowPower.getEpoch();
+    ss = rtcLowPower.getSubSeconds();
+    // handle carry
+    if (ss + ms >= 1000) {
+      ms -= 1000;
+      sec += 1;
+    }
+    rtcLowPower.setAlarmSubSeconds( ss + ms );
     rtcLowPower.setAlarmEpoch( epoc + sec );
   }
 

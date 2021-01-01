@@ -53,36 +53,22 @@ public:
 
   void idle(void);
   void idle(uint32_t millis);
-  void idle(int millis) {
-    idle((uint32_t)millis);
-  }
 
   void sleep(void);
   void sleep(uint32_t millis);
-  void sleep(int millis) {
-    sleep((uint32_t)millis);
-  }
 
   void deepSleep(void);
   void deepSleep(uint32_t millis);
-  void deepSleep(int millis) {
-    deepSleep((uint32_t)millis);
-  }
 
   void shutdown(void);
   void shutdown(uint32_t millis);
-  void shutdown(int millis) {
-    shutdown((uint32_t)millis);
-  }
 
-  void attachInterruptWakeup(uint32_t pin, voidFuncPtrVoid callback, uint32_t mode);
-
-  void enableWakeupFrom(HardwareSerial *serial, voidFuncPtrVoid callback);
-  void enableWakeupFrom(STM32RTC *rtc, voidFuncPtr callback);
+  void enableWakeupPin(uint32_t pin, voidFuncPtrVoid callback, uint32_t mode);
+  void enableWakeupSerial(HardwareSerial *serial, voidFuncPtrVoid callback);
+  void enableWakeupRtcFunction(voidFuncPtr callback);
 
 private:
   bool _configured;     /* Low Power mode initialization status */
-  STM32RTC rtcLowPower; /* RTC pointer */
 
   void programRtcWakeUp(uint32_t millis);
 };
